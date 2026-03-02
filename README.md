@@ -15,6 +15,7 @@ python -m pipeline.run   # Full Phase 1 pipeline (ingest → network → metrics
 
 - **Step-by-step build plan:** `ref/Restaurant_Hype_GraphRAG_Build_Plan.docx`
 - **Cursor rules / phase summary:** `contex.cursorules`
+- **Student guide (data + pipeline):** [docs/STUDENT_SETUP_GUIDE.md](docs/STUDENT_SETUP_GUIDE.md) — download Yelp dataset, place in repo, run pipeline to generate `data/processed/`.
 
 ## Project structure
 
