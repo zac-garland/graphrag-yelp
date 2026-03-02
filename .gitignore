@@ -1,0 +1,39 @@
+# Yelp Open Dataset (large JSON files — do not commit)
+Yelp JSON/
+data/raw/
+
+# Environment and secrets
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env.venv/
+*.egg-info/
+.eggs/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+frontend/.next/
+frontend/out/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+ref/~$*
+
+# Data outputs (pipeline CSVs/graphs — large, regeneratable)
+data/processed/
+data/neo4j-import/
+
+# Logs and temp
+*.log
+.cache/

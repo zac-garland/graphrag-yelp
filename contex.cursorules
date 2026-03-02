@@ -1,0 +1,118 @@
+# Restaurant Hype Networks — GraphRAG System
+
+## Project Overview
+Full-stack GraphRAG application modeling **Philadelphia's** restaurant hype ecosystem. Ingests Yelp Open Dataset, builds bipartite + projected networks, computes graph metrics, loads into Neo4j, and exposes a conversational AI interface over the graph with interactive network visualizations. (Target city is Philadelphia; Austin is not present in the Yelp Open Dataset.)
+
+## Tech Stack
+- **Pipeline:** Python 3.11+, Pandas, NetworkX, python-louvain
+- **Graph DB:** Neo4j 5 (Docker, APOC enabled)
+- **GraphRAG:** LangChain GraphCypherQAChain + Claude (claude-sonnet-4-20250514)
+- **API:** FastAPI (async), Pydantic models, SSE streaming
+- **Frontend:** Next.js 14 (App Router), TypeScript strict, Tailwind, Cytoscape.js, Recharts, Zustand
+
+## Project Structure
+```
+restaurant-hype-graphrag/
+├── data/raw/              # Yelp JSON (gitignored)
+├── data/processed/        # Cleaned CSVs, edge lists
+├── data/neo4j-import/     # Bulk import CSVs
+├── data/demo/             # Small sample for demo mode
+├── pipeline/
+│   ├── config.py          # City, paths, thresholds, Neo4j conn
+│   ├── ingest.py          # Parse Yelp JSON, filter to city
+│   ├── network.py         # Bipartite + projected graphs
+│   ├── metrics.py         # Centrality, k-core, Louvain
+│   ├── temporal.py        # Growth curves, hype events, influence tests
+│   └── load_neo4j.py      # Bulk load into Neo4j
+├── graphrag/
+│   ├── schema.py          # Neo4j schema introspection
+│   ├── cypher_chain.py    # NL-to-Cypher pipeline
+│   ├── prompts.py         # System prompt + few-shot Cypher examples
+│   └── retriever.py       # Hybrid retriever (Cypher + fulltext fallback)
+├── api/
+│   ├── main.py            # FastAPI app, CORS, middleware
+│   └── routers/           # chat.py, graph.py, metrics.py, temporal.py
+├── frontend/              # Next.js 14 app
+│   └── src/components/    # ChatPanel, GraphCanvas, DashboardCards, TemporalSlider
+├── tests/
+├── docker-compose.yml
+├── .env.example
+└── pyproject.toml
+```
+
+## Build Phases (execute in order)
+**Step-by-step process:** See `ref/Restaurant_Hype_GraphRAG_Build_Plan.docx` for the full Cursor development spec (per-phase instructions, validation checklists, endpoint tables, component specs, env setup).
+
+### Phase 1: Data Pipeline
+- Stream Yelp JSON line-by-line (do NOT load 7M reviews into memory)
+- Filter to TARGET_CITY restaurants (categories: Restaurant|Food|Bar|Cafe|Coffee)
+- Build bipartite graph (reviewer↔restaurant), edges carry: stars, date, review_id
+- Project restaurant↔restaurant (weight = shared reviewers, threshold ≥ 3)
+- Build social friend graph (only "internal" friends who both reviewed in city)
+- Compute: degree/betweenness/eigenvector centrality, k-core, Louvain communities
+- Temporal: monthly growth curves, hype events (velocity > 2σ), homophily vs influence test
+- Output CSVs to data/processed/
+
+### Phase 2: Neo4j
+- Nodes: Restaurant, Reviewer, Category, Community, HypeEvent
+- Relationships: REVIEWED, FRIENDS_WITH, SHARED_REVIEWERS, IN_CATEGORY, BELONGS_TO, BRIDGES
+- Constraints on business_id, user_id; indexes on community_id, k_core, is_elite
+- Full-text index on Restaurant(name) for fuzzy chat search
+- Bulk load with UNWIND + MERGE pattern
+
+### Phase 3: GraphRAG
+- Schema introspection → inject into LLM system prompt
+- GraphCypherQAChain with ≥15 few-shot question→Cypher pairs
+- Query validation with retry (up to 2x on syntax error)
+- Return: {answer, cypher_used, nodes_returned, visualization_hint}
+- viz_hint values: 'table', 'network_subgraph', 'bar_chart', 'timeline'
+- Fallback: keyword extraction + full-text search if Cypher gen fails
+
+### Phase 4: FastAPI
+- POST /api/chat — GraphRAG query (SSE streaming)
+- GET /api/graph/nodes, /edges, /community/{id}
+- GET /api/metrics/centrality, /kcore
+- GET /api/temporal/growth/{biz_id}, /influence-test
+- GET /api/stats — dashboard summary
+- Async Neo4j driver, Pydantic request/response models, .env config
+
+### Phase 5: Frontend
+- Split layout: left chat panel (35%), right tabbed panel (Graph|Dashboard|Temporal)
+- ChatPanel: streaming responses, collapsible "Show Cypher", starter question chips
+- GraphCanvas: Cytoscape.js, COSE-Bilkent layout, nodes colored by community, sized by eigenvector
+- DashboardCards: KPI row, centrality histograms, community bar chart, top-10 tables
+- TemporalSlider: time-range filter with play/pause animation, hype event markers
+- Zustand store: selectedNodes, communityFilter, timeWindow, chatHistory
+- Chat→Graph coordination: RAG returns node IDs → highlight on graph
+
+### Phase 6: Docker & Polish
+- docker-compose.yml: neo4j, api, frontend services
+- Demo mode: fallback to data/demo/ if no Yelp data present
+- Makefile: setup, pipeline, up, seed
+- README with Mermaid architecture diagram
+
+## Code Standards
+- Python: type hints everywhere, docstrings on all functions/classes, Pydantic models
+- TypeScript: strict mode, no `any` types
+- Tests: pytest for each pipeline module (use small synthetic data, not full dataset)
+- Async where possible in API layer
+- All config via environment variables (never hardcode credentials)
+- Commit format: `phase-N: brief description`
+
+## Critical Rules
+- NEVER load all reviews into memory — stream and filter line-by-line
+- NEVER hardcode Neo4j credentials or API keys
+- NEVER skip schema introspection in GraphRAG — LLM needs full schema for valid Cypher
+- NEVER use D3 from scratch for graph viz — use Cytoscape.js + react-cytoscapejs
+- NEVER use localStorage in React components
+- ALWAYS use UNWIND + MERGE for Neo4j bulk loading (not individual CREATEs)
+- ALWAYS return viz_hint from RAG so frontend knows what to render
+- ALWAYS include the generated Cypher in chat responses for transparency
+
+## Key Domain Context
+This models restaurant hype as a network phenomenon. Four hypotheses drive the analysis:
+- H1: High betweenness centrality → more likely to become hype
+- H2: Bipartite network reveals more cross-cluster connections than projection
+- H3: Homophily explains clustering; influence explains breakout hype events
+- H4: High k-core restaurants experience faster review growth
+The "Customer Influence Value" concept: target high-betweenness reviewers, not just high-follower-count people.

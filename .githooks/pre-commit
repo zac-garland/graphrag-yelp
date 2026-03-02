@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-commit hook: reject commit if any staged file exceeds MAX_BYTES.
+# Prevents accidentally committing large data (e.g. processed CSVs, dumps).
+# Enable: git config core.hooksPath .githooks
+
+set -e
+MAX_BYTES="${GIT_MAX_FILE_SIZE:-99614720}"
+# 95 MiB default (99614720), under GitHub's 100 MiB hard limit. Override: GIT_MAX_FILE_SIZE=... git commit ...
+
+OVER=""
+for name in $(git diff --cached --name-only --diff-filter=ACMR); do
+  [ -z "$name" ] && continue
+  size=$(git cat-file -s ":$name" 2>/dev/null) || true
+  [ -z "$size" ] && continue
+  if [ "$size" -gt "$MAX_BYTES" ]; then
+    mb=$((size / 1048576))
+    OVER="${OVER}  $name (${mb} MB)\n"
+  fi
+done
+
+if [ -n "$OVER" ]; then
+  echo "Commit rejected: staged file(s) exceed size limit (max $((MAX_BYTES / 1048576)) MB):"
+  printf '%s' "$OVER"
+  echo "Unstage them (e.g. git reset HEAD -- <file>) or set GIT_MAX_FILE_SIZE to allow."
+  exit 1
+fi
+exit 0
