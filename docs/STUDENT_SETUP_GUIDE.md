@@ -122,3 +122,5 @@ If someone gives you the **`city_*.csv`** files and you only want to re-run netw
 - [ ] Outputs in **`data/processed/`**
 
 The **`Yelp JSON/`** folder is in **`.gitignore`**, so the dataset is never committed. Only code and small refs are in the repo.
+
+**Next steps (Neo4j + API + frontend):** After you have `data/processed/`, see the main [README](../README.md) for Neo4j, GraphRAG API, and the Next.js app, and [DOCKER_AND_NEO4J_BASICS.md](DOCKER_AND_NEO4J_BASICS.md) for Docker and loading the graph.
