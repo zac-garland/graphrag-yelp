@@ -11,6 +11,7 @@ from pipeline.ingest import run_ingest
 from pipeline.metrics import compute_all_metrics
 from pipeline.network import run_network
 from pipeline.temporal import run_temporal
+from pipeline.hypothesis_tests import run_hypothesis_tests
 
 
 def run_phase1(
@@ -60,13 +61,15 @@ def run_phase1(
             reviewer_centrality = rn[["id", "degree"]].rename(columns={"id": "user_id"})
 
     print("Running temporal analysis...")
-    run_temporal(
+    _, _, _ = run_temporal(
         reviews,
         users,
         friend_edges,
         reviewer_centrality,
         out_dir=out_dir,
     )
+    print("Running hypothesis tests (H1, H4)...")
+    run_hypothesis_tests(out_dir=out_dir)
     print("Phase 1 complete.")
 
 

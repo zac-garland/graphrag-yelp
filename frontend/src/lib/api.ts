@@ -26,7 +26,13 @@ export async function getStats(): Promise<{
   return res.json();
 }
 
-export async function getGraphNodes(communityId?: number, limit = 500) {
+export async function getGraphCommunities(): Promise<{ communities: Array<{ community_id: number; restaurant_count: number }> }> {
+  const res = await fetch(`${API_BASE}/api/graph/communities`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getGraphNodes(communityId?: number, limit = 200) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (communityId != null) params.set("community_id", String(communityId));
   const res = await fetch(`${API_BASE}/api/graph/nodes?${params}`);
@@ -34,9 +40,14 @@ export async function getGraphNodes(communityId?: number, limit = 500) {
   return res.json();
 }
 
-export async function getGraphEdges(communityId?: number, limit = 1000) {
+export async function getGraphEdges(
+  communityId?: number,
+  limit = 1000,
+  nodeIds?: string[]
+) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (communityId != null) params.set("community_id", String(communityId));
+  if (nodeIds != null && nodeIds.length > 0) params.set("node_ids", nodeIds.join(","));
   const res = await fetch(`${API_BASE}/api/graph/edges?${params}`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
